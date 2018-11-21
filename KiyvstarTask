@@ -1,0 +1,293 @@
+
+# coding: utf-8
+
+# In[1]:
+
+
+import pandas as pd
+import numpy as np
+np.set_printoptions(threshold=np.inf)
+import scipy
+from scipy.stats import spearmanr
+
+from pylab import rcParams
+import seaborn as sb
+import matplotlib.pyplot as plt
+
+import sklearn 
+from sklearn.preprocessing import scale
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
+from sklearn import metrics
+from sklearn import preprocessing
+from sklearn.preprocessing import Imputer
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import roc_auc_score
+
+
+# In[2]:
+
+
+BigDataSchool_features = pd.read_csv('C:/Users/Ivan/Datasets/BigDataSchool3/BigDataSchool_features.csv')
+BigDataSchool_train = pd.read_csv('C:/Users/Ivan/Datasets/BigDataSchool3/BigDataSchool_train_set.csv')
+BigDataSchool_test = pd.read_csv('C:/Users/Ivan/Datasets/BigDataSchool3/BigDataSchool_test_set.csv')
+
+
+# In[3]:
+
+
+# first of all I will try to identify highly correlated features just,, my guess
+# Create correlation matrix
+corr_matrix = BigDataSchool_features.corr().abs()
+upper = corr_matrix.where(np.triu(np.ones(corr_matrix.shape), k=1).astype(np.bool))
+with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+    display(upper)
+
+# Find index of feature columns with correlation greater than 0.95 - 0.8
+to_drop_95 = [column for column in upper.columns if any(upper[column] > 0.95)]
+print(to_drop_95)
+to_drop_90 = [column for column in upper.columns if any(upper[column] > 0.90)]
+print(to_drop_90)
+to_drop_85 = [column for column in upper.columns if any(upper[column] > 0.85)]
+print(to_drop_85)
+to_drop_80 = [column for column in upper.columns if any(upper[column] > 0.80)]
+print(to_drop_80)
+
+
+# # Logistic regression, KNeighbours and DecisionTree I used bellow
+
+# #### checking for independence between features
+
+# In[4]:
+
+
+# as I did before, 'F7', 'F10', 'F13', 'F16', 'F22', 'F29', 'F32', 'F35', are highly correlated
+
+
+# In[5]:
+
+
+sb.regplot(x='F7', y='F6', data = BigDataSchool_features, scatter = True )
+
+
+# In[6]:
+
+
+sb.regplot(x='F10', y='F9', data = BigDataSchool_features, scatter = True )
+
+
+# In[7]:
+
+
+sb.regplot(x='F13', y='F12', data = BigDataSchool_features, scatter = True )
+
+
+# In[8]:
+
+
+sb.regplot(x='F16', y='F15', data = BigDataSchool_features, scatter = True )
+
+
+# In[9]:
+
+
+sb.regplot(x='F22', y='F21', data = BigDataSchool_features, scatter = True )
+
+
+# In[10]:
+
+
+sb.regplot(x='MONTH_NUM_FROM_EVENT', y='F32', data = BigDataSchool_features, scatter = True )
+
+
+# In[11]:
+
+
+sb.regplot(x='F29', y='F28', data = BigDataSchool_features, scatter = True )
+
+
+# In[12]:
+
+
+sb.regplot(x='F35', y='F16', data = BigDataSchool_features, scatter = True )
+
+
+# In[13]:
+
+
+sb.regplot(x='F35', y='F16', data = BigDataSchool_features, scatter = True )
+
+
+# In[14]:
+
+
+#so we will delete them
+BigDataSchool_features_cleaned = BigDataSchool_features.drop(columns=['ID','F7', 'F10', 'F13', 'F16', 'F22', 'F29', 'F32', 'F35'])
+BigDataSchool_features_cleaned.shape
+
+
+# #### Checking for missing values
+
+# In[15]:
+
+
+BigDataSchool_features_cleaned.isnull().sum()
+#'F23' contains only NaN elements so we will delete it
+BigDataSchool_features_cleaned = BigDataSchool_features_cleaned.drop(columns=['MONTH_NUM_FROM_EVENT','F23','F33','F34'])
+BigDataSchool_features_cleaned.isnull().sum()
+#Alsi deleted F33 and F34
+
+
+# In[16]:
+
+
+#While there are too many NaN i will try different strategies as change them to Mean, Mode or Median
+BigDataSchool_features_cleaned_mean = BigDataSchool_features_cleaned
+imp = Imputer(missing_values='NaN', strategy='mean', axis=0)
+imp.fit(BigDataSchool_features_cleaned_mean)
+BigDataSchool_features_cleaned_mean = imp.transform(BigDataSchool_features_cleaned_mean)
+column_names = BigDataSchool_features_cleaned.columns.values.tolist()
+BigDataSchool_features_cleaned_mean = pd.DataFrame(data=BigDataSchool_features_cleaned_mean,columns = column_names )
+
+
+# #### Check target for being either 1 or 0
+# 
+
+# In[17]:
+
+
+#Check for missing data
+print((BigDataSchool_train==0).sum()+(BigDataSchool_train==1).sum())
+print(BigDataSchool_train.shape)
+
+
+# In[18]:
+
+
+# Multiple each row six times
+y = pd.DataFrame(np.random.randn(77340, 2), columns=['ID','TARGET'])
+counter = 0
+for index, row in BigDataSchool_train.iterrows():
+    for i in range(6):
+        y['ID'][counter] = row[0]
+        if row[1] == 0.0:
+            y['TARGET'][counter]= 0.0
+        else:
+            y['TARGET'][counter]= 1.0
+        counter=counter+1 
+
+
+# In[19]:
+
+
+X_without_data_for_sendingAsAnswer = BigDataSchool_features_cleaned_mean[:77340]
+X_train, X_test, y_train, y_test = train_test_split(X_without_data_for_sendingAsAnswer,y['TARGET'], test_size = .2)
+
+
+# In[20]:
+
+
+LogReg = LogisticRegression()
+LogReg.fit(X_train,y_train)
+
+
+# In[21]:
+
+
+predictions = LogReg.predict(X_test)
+
+
+# In[22]:
+
+
+from sklearn.metrics import accuracy_score
+roc_auc_score(y_test, predictions)
+
+
+# #### Different classifiers and Scaler
+
+# In[23]:
+
+
+
+X_cleaned = BigDataSchool_features_cleaned_mean[:77340]
+X_cleaned = StandardScaler().fit_transform(X_cleaned)
+X_train, X_test, y_train, y_test = train_test_split(X_cleaned, y['TARGET'], test_size=.2, random_state=42)
+
+
+# In[24]:
+
+
+LogReg2 = LogisticRegression()
+LogReg2.fit(X_train,y_train)
+predictions2 = LogReg2.predict(X_test)
+roc_auc_score(y_test, predictions2)
+
+
+# In[25]:
+
+
+from sklearn import tree
+clf2 = tree.DecisionTreeClassifier()
+clf2.fit(X_train,y_train)
+
+
+# In[26]:
+
+
+predictions = clf2.predict(X_test)
+roc_auc_score(y_test, predictions)
+
+
+# In[27]:
+
+
+from sklearn.neighbors import KNeighborsClassifier
+my_neighb_clf = KNeighborsClassifier()
+my_neighb_clf.fit(X_train, y_train)
+predictions3 = my_neighb_clf.predict(X_test)
+roc_auc_score(y_test, predictions3)
+
+
+# In[28]:
+
+
+my_neighb_clf2 = KNeighborsClassifier(n_neighbors=2)
+my_neighb_clf2.fit(X_train, y_train)
+predictions4 = my_neighb_clf2.predict(X_test)
+roc_auc_score(y_test, predictions4)
+
+
+# In[29]:
+
+
+my_neighb_clf3 = KNeighborsClassifier(n_neighbors=1)
+my_neighb_clf3.fit(X_train, y_train)
+predictions4 = my_neighb_clf3.predict(X_test)
+roc_auc_score(y_test, predictions4)
+
+
+# In[30]:
+
+
+#I was changing strategy for missing_values. The best was mean with StandardScaler() . Got roc_auc_score 0.6234 with test_size of 20%. and 0.6232 with test_size = 5% and 0.6041 with text_size = 10%
+
+
+# ##### final classifier
+
+# In[31]:
+
+
+X_train_finall = BigDataSchool_features_cleaned_mean[:77340]
+X_train_finall = StandardScaler().fit_transform(X_train_finall)
+X_test_finall = BigDataSchool_features_cleaned_mean[77340:]
+X_test_finall = StandardScaler().fit_transform(X_test_finall)
+
+y_train_finall = y['TARGET']
+
+finall_clf = KNeighborsClassifier(n_neighbors=1)
+finall_clf.fit(X_train_finall,y_train_finall)
+
+predictions_finall = finall_clf.predict(X_test_finall)
+predictions_finall.shape
+
